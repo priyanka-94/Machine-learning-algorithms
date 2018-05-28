@@ -1,0 +1,195 @@
+---
+title: "logisttic"
+author: "Priyanka Mohekar"
+date: "15 May 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+data = read.csv("C:/Users/Administrator/Desktop/Machine Learning/Practice/binary.csv")
+head(data)
+```
+
+#What is Logistic Regression ?
+#Logistic Regression is a classification algorithm. It is used to predict a #binary outcome (1 / 0, Yes / No, True / False) given a set of independent #variables. To represent binary / categorical outcome, we use dummy #variables. You can also think of logistic regression as a special case of #linear regression when the outcome variable is categorical, where we are #using log of odds as dependent variable. In simple words, it predicts the #probability of occurrence of an event by fitting data to a logit function.
+
+
+```{r}
+summary(data)
+sapply(data, sd)
+```
+## two-way contingency table of categorical outcome and predictors we want
+## to make sure there are not 0 cells
+```{r}
+xtabs(~admit+rank, data = data)
+```
+#we convert rank to a factor to indicate that rank should be treated as a #categorical variable.
+```{r}
+data$rank <- factor(data$rank)
+my_logit <- glm(admit~gre+gpa+rank, data = data, family = "binomial")
+my_logit
+#my_logit <- glm(admit~gre+gpa+rank, family = binomial(link = "logit"), data = data)
+summary(my_logit)
+```
+
+
+
+
+
+
+```{r}
+## CIs using profiled log-likelihood
+confint(my_logit)
+```
+
+```{r}
+#### CIs using standard errors
+confint.default(my_logit)
+```
+## We use the wald.test function. b supplies the coefficients, while Sigma ##supplies the variance covariance matrix of the error terms, finally Terms ##tells R which terms in the model are to be tested, in this case, terms 4, ##5, and 6, are the three terms for the levels of rank.
+
+```{r}
+library(aod)
+wald.test(b= coef(my_logit), Sigma = vcov(my_logit), Terms =4:6)
+```
+```{r}
+l <- cbind(0,0,0,1,-1,0)
+wald.test(b = coef(my_logit), Sigma = vcov(my_logit), L = l)
+```
+
+```{r}
+### odds ratios only
+exp(coef(my_logit))
+```
+
+```{r}
+#### odds ratios and 95% CI
+exp(cbind(OR = coef(my_logit), confint(my_logit)))
+```
+##You can also use predicted probabilities to help you understand the #model. Predicted probabilities can be computed for both categorical and #continuous predictor variables. In order to create predicted probabilities #we first need to create a new data frame with the values we want the #independent variables to take on to create our predictions.
+
+#We will start by calculating the predicted probability of admission at #each value of rank, holding gre and gpa at their means. First we create #and view the data frame.
+```{r}
+newdata1 = with(data, data.frame(gre = mean(gre), gpa = mean(gpa), rank = factor(1:4)))
+
+newdata1
+```
+
+```{r}
+newdata1$rankP <- predict(my_logit, newdata = newdata1, type = "response")
+newdata1
+```
+
+
+```{r}
+newdata2 = with(data, data.frame(gre = rep(seq(from = 200, to = 800, length.out = 100),4), gpa= mean(gpa), rank = factor(rep(1:4, each = 100)))))
+```
+
+
+```{r}
+newdata3 <- cbind(newdata2, predict(my_logit, newdata = newdata2, type = "link", se = TRUE))
+
+newdata3 <- within(newdata3,{
+  PredictedProb <- plogis(fit)
+  LL <- plogis(fit - (1.96 * se.fit))
+  UL <- plogis(fit + (1.96 * se.fit))
+})
+
+
+head(newdata3)
+```
+
+```{r}
+ggplot(newdata3, aes(x = gre, y = PredictedProb)) +
+  geom_ribbon(aes(ymin = LL, ymax = UL, fill = rank), alpha = 0.2)+
+  geom_line(aes(colour = rank ), size = 1)
+```
+
+#We may also wish to see measures of how well our model fits. This can be #particularly useful when comparing competing models. The output produced #by summary(mylogit) included indices of fit (shown below the #coefficients), including the null and deviance residuals and the AIC. One #measure of model fit is the significance of the overall model. This test #asks whether the model with predictors fits significantly better than a #model with just an intercept (i.e., a null model). The test statistic is #the difference between the residual deviance for the model with predictors #and the null model. The test statistic is distributed chi-squared with #degrees of freedom equal to the differences in degrees of freedom between #the current and the null model (i.e., the number of predictor variables in #the model). To find the difference in deviance for the two models (i.e., #the test statistic) we can use the command:
+
+```{r}
+with(my_logit, null.deviance - deviance)
+```
+
+#The degrees of freedom for the difference between the two models is equal #to the number of predictor variables in the mode, and can be obtained #using:
+```{r}
+with(my_logit, df.null - df.residual)
+```
+
+#Finally, the p-value can be obtained using:
+```{r}
+with(my_logit, pchisq(null.deviance - deviance, df.null - df.residual, lower.tail = F))
+```
+
+#The chi-square of 41.46 with 5 degrees of freedom and an associated #p-value of less than 0.001 tells us that our model as a whole fits #significantly better than an empty model. This is sometimes called a #likelihood ratio test (the deviance residual is -2*log likelihood). To #see the model's log likelihood, we type:
+```{r}
+logLik(my_logit)
+```
+
+
+```{r}
+mydata      <- read.csv("C:/Users/Administrator/Desktop/Machine Learning/Practice/binary.csv")
+mydata$rank <- factor(mydata$rank)
+
+my.mod <- glm(admit ~ gre + gpa + rank, data = mydata, family = "binomial")
+summary(my.mod)
+
+```
+
+```{r}
+# The sequential analysis
+anova(my.mod, test="Chisq")
+
+
+# We can make the comparisons by hand (adding a variable in each step)
+
+  # model only the intercept
+mod1 <- glm(admit ~ 1,data = mydata, family = "binomial") 
+
+  # model with intercept + gre
+mod2 <- glm(admit ~ gre,data = mydata, family = "binomial") 
+
+  # model with intercept + gre + gpa
+mod3 <- glm(admit ~ gre + gpa,data = mydata, family = "binomial") 
+  # model containing all variables (full model)
+mod4 <- glm(admit ~ gre + gpa + rank, data = mydata, family = "binomial") 
+
+anova(mod1, mod2, test="LRT")
+
+anova(mod2, mod3, test="LRT")
+
+anova(mod3, mod4, test="LRT")
+
+#The p-values in the output of summary(my.mod) are Wald tests which test the following hypotheses (note that they're interchangeable and the order of the tests does not matter):
+
+#For coefficient of x1: glm(y~x2+x3, family="binomial") vs. glm(y~x1+x2+x3, family="binomial")
+
+#For coefficient of x2: glm(y~x1+x3, family="binomial") vs. glm(y~x1+x2+x3, family="binomial")
+#For coefficient of x3: glm(y~x1+x2, family="binomial") vs. glm(y~x1+x2+x3, family="binomial")
+#So each coefficient against the full model containing all coefficients. Wald tests are an approximation of the likelihood ratio test. We could also do the likelihood ratio tests (LR test). Here is how:
+
+mod1.2 <- glm(admit ~ gre + gpa,  data = mydata, family = "binomial")
+mod2.2 <- glm(admit ~ gre + rank, data = mydata, family = "binomial")
+mod3.2 <- glm(admit ~ gpa + rank, data = mydata, family = "binomial")
+
+anova(mod1.2, my.mod, test="LRT") # joint LR test for rank
+
+
+anova(mod2.2, my.mod, test="LRT") # LR test for gpa
+
+anova(mod3.2, my.mod, test="LRT") # LR test for gre
+
+#The p-values from the likelihood ratio tests are very similar to those obtained by the Wald tests by summary(my.mod) above.
+
+#Note: The third model comparison for rank of anova(my.mod, test="Chisq") is the same as the comparison for rank in the example below (anova(mod1.2, my.mod, test="Chisq")). Each time, the p-value is the same, 7.088???10???5. It is each time the comparison between the model without rank vs. the model containing it.
+```
+#-----------------------------------------------------------------------
+
+
+```{r}
+library(Amelia)
+AmeliaView()
+
+```
+

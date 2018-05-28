@@ -1,0 +1,72 @@
+---
+title: "Practice algorithms"
+author: "Priyanka Mohekar"
+date: "7 May 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(InformationValue)
+library(smbinning)
+library(randomForest)
+```
+
+```{r}
+adult <- read.csv("C:/Users/Administrator/Desktop/Machine Learning/Practice/adult.csv")
+#View(adult)
+head(adult)
+table(adult$ABOVE50K)
+```
+
+
+```{r}
+
+
+train <- adult[1:(0.7*nrow(adult)),]
+head(train)
+
+test <- adult[(0.7*nrow(adult))+1:nrow(adult),]
+head(test)
+
+```
+
+
+```{r}
+logit_model = glm(ABOVE50K~., data = train, 
+                  family = binomial(link = "logit"))
+anova(logit_model, test = "Chisq")
+
+plot(logit_model)
+
+p <- predict(logit_model, newdata = test)
+
+predicted <- plogis(predict(logit_model, data = test))
+
+#predicted <- predict(logit_model, test, type="response")
+```
+
+
+```{r}
+optCutoff <- optimalCutoff(test$ABOVE50K, predicted)[1]
+summary(logit_model)
+```
+
+```{r}
+set.seed(71)
+df <- iris
+rf <- randomForest(Species~., data = iris, importance = TRUE,
+                   proximity = TRUE)
+plot(rf)
+```
+
+```{r}
+importance(rf)
+round(importance(rf),2)
+```
+
+```{r}
+cmdscale(1-rf$proximity)
+```
+

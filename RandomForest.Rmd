@@ -1,0 +1,78 @@
+---
+title: "RF practice"
+author: "Priyanka Mohekar"
+date: "16 May 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(MASS)
+library(randomForest)
+library(dplyr)
+```
+
+
+Random Forests
+Random Forests are similar to a famous Ensemble technique called Bagging but have a different tweak in it. In Random Forests the idea is to decorrelate the several trees which are generated on the different bootstrapped samples from training Data.And then we simply reduce the Variance in the Trees by averaging them.
+Averaging the Trees helps us to reduce the variance and also improve the Perfomance of Decision Trees on Test Set and eventually avoid Overfitting.
+
+The idea is to build lots of Trees in such a way to make the Correlation between the Trees smaller.
+
+Another major difference is that we only consider a Random subset of predictors \( m \) each time we do a split on training examples.Whereas usually in Trees we find all the predictors while doing a split and choose best amongst them. Typically \( m=\sqrt{p} \) where \(p\) are the number of predictors.
+
+Now it seems crazy to throw away lots of predictors, but it makes sense because the effect of doing so is that each tree uses different predictors to split data at various times.
+
+So by doing this trick of throwing away Predictors, we have de-correlated the Trees and the resulting average seems a little better.
+
+```{r}
+set.seed(101)
+Boston
+dim(Boston)
+boston_train = Boston[sample(seq(1,nrow(Boston)),300),]
+boston_test = Boston[sample(seq(nrow(Boston)),106),]
+```
+
+We are going to use variable 'medv' as the Response variable, which is the Median Housing Value. We will fit 500 Trees.
+
+```{r}
+mt = round(sqrt(length(colnames(boston_train))-1))
+model_rf = randomForest(medv~., data = boston_train,
+                        ntree = 500,
+                        mtry = mt)
+boston_test$predicted = predict(model_rf, boston_test)
+str(boston_test$predicted)
+plot(model_rf)
+```
+
+```{r}
+oob.err=double(13)
+test.err=double(13)
+
+#mtry is no of Variables randomly chosen at each split
+for(mtry in 1:13) {
+  rf=randomForest(medv ~ . , data = boston_train,mtry=mtry,ntree=400) 
+  oob.err[mtry] = rf$mse[400] #Error of all Trees fitted
+  
+  pred<-predict(rf, boston_test) #Predictions on Test Set for each Tree
+  test.err[mtry]= with(boston_test, mean( (medv - pred)^2)) #Mean Squared Test Error
+  
+  cat(mtry," ") #printing the output to the console
+  
+}
+
+test.err
+oob.err
+#What happens is that we are growing 400 trees for 13 times i.e for all 13 predictors.
+```
+```{r}
+{{plot(oob.err, type = "o", col = "blue") 
+  lines(test.err, type = "o", col = "red")}}
+```
+
+
+```{r}
+matplot(1:mtry , cbind(oob.err,test.err), pch=19 , col=c("red","blue"),type="b",ylab="Mean Squared Error",xlab="Number of Predictors Considered at each Split")
+legend("topright",legend=c("Out of Bag Error","Test Error"),pch=19, col=c("red","blue"))
+```
+
