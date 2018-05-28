@@ -1,0 +1,177 @@
+---
+title: "2nd Day ML"
+author: "Priyanka Mohekar"
+date: "30 April 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(ggplot2)
+library(plotly)
+set.seed(100)
+```
+
+
+```{r}
+data("iris")
+View(iris)
+iris_new <- iris %>% select(-Species)
+View(iris_new)
+iris_model <- kmeans(iris_new, centers = 3)
+iris_model
+iris_model$cluster
+length(iris_model$cluster)
+dim(iris_new)
+table(iris_model$cluster)
+iris_model
+```
+
+
+```{r}
+adv <- read.csv("Advertising.csv")
+View(adv)
+adv[1:150,]
+adv_train<-adv[sample(seq(1,nrow(adv)),162),]
+View(adv_train)
+adv_test <- adv[sample(seq(1,nrow(adv)),38),]
+names(adv)
+adv_model <- lm(sales ~TV, data = adv_train) 
+adv_model
+```
+
+
+```{r}
+m = 0.01
+m = 0.02
+m = 0.03
+m = 0.04
+m = 0.05
+m = 0.1
+c = 1
+sales_predicted <- m * adv_train$TV +c
+error <- sum((adv_train$sales - sales_predicted)^2)/nrow(adv_train)
+error
+{{plot(adv_train$TV, adv_train$sales)
+  lines(adv_train$TV, sales_predicted)}}
+
+```
+
+
+```{r,fig.height=5,fig.width=8}
+m = seq(0,1,length.out = 100)
+m
+length(m)
+par(mfrow = c(2,2))
+for(i in m){
+  sales_predicted <- i * adv_train$TV +c
+  error <- sum((adv_train$sales - sales_predicted)^2)/nrow(adv_train)
+  print(error)
+  {{plot(adv_train$TV, adv_train$sales)
+  lines(adv_train$TV, sales_predicted)}}
+}
+```
+
+
+```{r}
+set.seed(100)
+m = seq(-1,1,length.out = 100)
+m
+length(m)
+e = c()
+for(i in m){
+  sales_predicted <- i * adv_train$TV +c
+  error <- sum((adv_train$sales - sales_predicted)^2)/nrow(adv_train)
+  nrow(adv_train)
+  e = c(e,error)
+}
+plot(e)
+
+min(e)
+which(e == min(e))
+m[54]
+```
+
+
+```{r,fig.height=5,fig.width=8}
+m = seq(-1,1,length.out = 10)
+c = seq(-10,10,length.out = 10)
+for(i in m){
+  for (j  in c) {
+    print(c(i,j))
+  }
+}
+```
+
+
+
+```{r}
+m = seq(-1,1,length.out = 100)
+c = seq(-10,10,length.out = 100)
+# as we increase the length.out in will reduce the error
+
+m_rep = c()
+c_rep = c()
+e = c()
+for(i in m){
+  for (j  in c) {
+  sales_predicted <- i * adv_train$TV +j
+  error <- sum((adv_train$sales - sales_predicted)^2)/nrow(adv_train)
+  nrow(adv_train)
+  m_rep = c(m_rep,i)
+  c_rep = c(c_rep, j)
+  e = c(e,error)
+  }
+}
+plot(e)
+models <- data.frame(slope = m_rep, intercept = c_rep, mse = e)
+View(models)
+
+dim(models)
+
+models %>% arrange(mse) %>% head(1)
+```
+
+
+```{r}
+mspace = m
+cspace = c
+zspace = matrix(e, nrow = length(m), ncol = length(c))
+plot_ly(x = mspace,y = cspace, z = zspace)  %>% add_surface()
+```
+
+
+```{r}
+m1 = seq(-1,1,length.out = 100)
+c = seq(-10,10,length.out = 100)
+# as we increase the length.out in will reduce the error
+m2 = seq(-1,1,length.out = 100)
+m1_rep = c()
+m2_rep = c()
+c1_rep = c()
+e = c()
+for(i in m1){
+  for (j  in m2) {
+    for (k in c) {
+      
+    }
+  sales_predicted <- i * adv_train$TV +j *adv_train$radio + k 
+  error <- sum((adv_train$sales - sales_predicted)^2)/nrow(adv_train)
+  nrow(adv_train)
+  m1_rep = c(m1_rep,i)
+  m2_rep = c(m2_rep,j)
+  c1_rep = c(c1_rep, k)
+  e = c(e,error)
+  }
+}
+plot(e)
+models1 <- data.frame(slope = m_rep, intercept = c_rep, mse = e)
+View(models1)
+
+dim(models1)
+
+models1 %>% arrange(mse) %>% head(1)
+```
+
+

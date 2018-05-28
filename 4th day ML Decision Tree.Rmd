@@ -1,0 +1,157 @@
+---
+title: "4th day ML Decision Tree"
+author: "Priyanka Mohekar"
+date: "7 May 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+```
+
+
+```{r}
+adv <- read.csv("C:/Users/Administrator/Desktop/Machine Learning/Advertising.csv")
+View(adv)
+model = tree(sales~., data = adv)
+{{plot(model)
+  text(model)}}
+```
+
+```{r}
+TV_uniqs = sort(unique(adv$TV))
+length(TV_uniqs)
+TV_uniqs[1:10]
+cuts_tv <- (TV_uniqs[1:length(TV_uniqs)-1] + TV_uniqs[2:length(TV_uniqs)])/2
+length(cuts_tv)
+
+radio_uniqs = sort(unique(adv$radio))
+length(radio_uniqs)
+radio_uniqs[1:10]
+cuts_radio <- (radio_uniqs[1:length(radio_uniqs)-1] +
+                 radio_uniqs[2:length(radio_uniqs)])/2
+length(cuts_radio)
+
+
+news_uniqs = sort(unique(adv$newspaper))
+length(news_uniqs)
+news_uniqs[1:10]
+cuts_news <- (news_uniqs[1:length(news_uniqs)-1] +
+                 news_uniqs[2:length(news_uniqs)])/2
+length(cuts_news)
+```
+
+
+### Method 1
+```{r}
+tv_cuts_mse = c()
+#temp = adv %>% filter(TV > 122.05 & radio > 26.85)
+temp = adv #%>% filter(TV > 122.05 & radio < 26.85)
+nrow(temp)
+for (cut in cuts_tv) {
+  samples_left = temp %>% filter(TV < cut)
+  samples_right = temp %>% filter(TV > cut)
+  pred_left = mean(samples_left$sales)
+  pred_right = mean(samples_right$sales)
+  temp$pred = ifelse(temp$TV<cut, pred_left, pred_right)
+  curr_mse = sum((temp$sales - temp$pred)^2)/nrow(temp)
+  tv_cuts_mse = c(tv_cuts_mse, curr_mse)
+}
+
+
+radio_cuts_mse = c()
+for (cut in cuts_radio) {
+  samples_left = temp %>% filter(radio < cut)
+  samples_right = temp %>% filter(radio > cut)
+  pred_left = mean(samples_left$sales)
+  pred_right = mean(samples_right$sales)
+  temp$pred = ifelse(temp$radio<cut, pred_left, pred_right)
+  curr_mse = sum((temp$sales - temp$pred)^2)/nrow(temp)
+  radio_cuts_mse = c(radio_cuts_mse, curr_mse)
+}
+
+
+
+news_cuts_mse = c()
+for (cut in cuts_news) {
+  samples_left = temp %>% filter(newspaper < cut)
+  samples_right = temp %>% filter(newspaper > cut)
+  pred_left = mean(samples_left$sales)
+  pred_right = mean(samples_right$sales)
+  temp$pred = ifelse(temp$newspaper<cut, pred_left, pred_right)
+  curr_mse = sum((temp$sales - temp$pred)^2)/nrow(temp)
+  news_cuts_mse = c(news_cuts_mse, curr_mse)
+}
+
+result_TV = data.frame(column = rep ('TV', length(cuts_tv)), 
+                       cut = cuts_tv,
+                                     mse = tv_cuts_mse)
+
+result_radio = data.frame(column = rep ('radio', length(cuts_radio)), 
+                                        cut = cuts_radio,
+                                     mse = radio_cuts_mse)
+
+result_news = data.frame(column = rep ('newspaper', length(cuts_news)), 
+                                       cut = cuts_news,
+                                     mse = news_cuts_mse)
+
+result = rbind(result_TV, result_radio, result_news)
+View(result)
+nrow(result)
+
+result %>% arrange(mse) %>% head(1)
+```
+
+
+### Method 2
+```{r}
+cuts = c(cuts_tv, cuts_radio, cuts_news)
+predictors = c(rep('TV', length(cuts_tv)), rep('radio', length(cuts_radio)), rep('newspaper',length(cuts_news)))
+
+result = data.frame(cut = cuts, predictor = predictors)
+#View(result)
+cuts_mse = c()
+temp = adv
+
+for (i in seq(1, length(cuts))){
+  cut = cuts[i]
+  curr_col = predictors[i]
+  samples_left = temp[temp[, curr_col]<cut,]  
+  samples_right = temp[temp[, curr_col]>cut,]
+  pred_left = mean(samples_left$sales)
+  pred_right = mean(samples_right$sales)
+  temp$pred = ifelse(temp[,curr_col]<cut, pred_left, pred_right)
+  curr_mse = sum((temp$sales-temp$pred)^2)/nrow(temp)
+  cuts_mse = c(cuts_mse, curr_mse)
+}
+result$mse = cuts_mse
+View(result)
+result %>% arrange(mse) %>% head(1)
+View(temp[, curr_col]<cut)
+
+```
+
+
+
+```{r}
+cuts = c(cuts_tv, cuts_radio, cuts_news)
+predictors = c(rep('TV', length(cuts_tv)), rep('radio', length(cuts_radio)), rep('newspaper',length(cuts_news)))
+
+result = data.frame(cut = cuts, predictor = predictors)
+#View(result)
+cuts_var = c()
+temp = adv #%>% filter(TV > 122.05 & radio > 26.85 & TV > 194.55)
+for (i in seq(1, length(cuts))) {
+  cut = cuts[i]
+  curr_col = predictors[i]
+  samples_left = temp[temp[, curr_col]<cut,]  
+  samples_right = temp[temp[, curr_col]>cut,]
+  curr_var = var(temp$sales)-(nrow(samples_left)/nrow(temp)) * var(samples_left$sales) - (nrow(samples_right)/nrow(temp)) * var(samples_right$sales)  
+  cuts_var = c(cuts_var, curr_var)
+}
+result$var = cuts_var
+View(result)
+result %>% arrange(-var) %>% head(10)
+```
+

@@ -1,0 +1,185 @@
+---
+title: "6th day ML"
+author: "Priyanka Mohekar"
+date: "15 May 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(rattle)
+library(tree)
+library(rpart)
+library(caret)
+```
+
+
+```{r}
+set.seed(123)
+hr <- read.csv("C:/Users/Administrator/Desktop/Machine Learning/Datasets/datasets-master/HR Analytics.csv")
+#View(hr)
+dim(hr)
+hr_train = hr[1:(0.7*nrow(hr)),]
+hr_test = hr[(0.7*nrow(hr)+1):nrow(hr),]
+nrow(hr_train)
+nrow(hr_test)
+```
+
+```{r, fig.width=11, fig.height=8}
+model = rpart(Attrition~. , data = hr)
+{{plot(model)
+  text(model)}}
+fancyRpartPlot(model)
+```
+
+```{r}
+hr$Attrition = as.factor(hr$Attrition)
+hr_train = hr[sample(seq(1,nrow(hr)),(0.7*nrow(hr))),]
+hr_test = hr[sample(seq(1,nrow(hr)),(0.3*nrow(hr))),]
+dim(hr_train)
+dim(hr_test)
+
+model = rpart(Attrition~Gender+MonthlyIncome+OverTime, data = hr_train,
+              method = "class")
+fancyRpartPlot(model, palettes = "RdPu")
+hr_test$pred= as.data.frame(predict(model, hr_test))
+result = as.data.frame(predict(model, hr_test))
+hr[1189,c('Gender','MonthlyIncome','OverTime','Attrition')]
+#View(hr_test)
+```
+
+```{r}
+hr_test$pred = ifelse(result$`0`>0.5,0,1)
+View(hr_test[,c('Attrition','pred')])
+
+## Calculation of accuracy
+hr_test %>% filter(pred == Attrition) %>% nrow()
+377/nrow(hr_test)
+
+#OR
+mean(hr_test$pred == hr_test$Attrition)*100
+
+table(hr$Attrition)
+```
+
+
+```{r}
+table(hr_test$pred, hr_test$Attrition)
+
+#True positive
+hr_test %>% filter(Attrition == 1, pred == 1) %>% nrow()
+
+#True negative
+hr_test %>% filter(Attrition == 0, pred == 0) %>% nrow()
+
+#False Positive
+hr_test %>% filter(Attrition == 0, pred == 1) %>% nrow()
+
+#False negative
+hr_test %>% filter(Attrition == 1, pred == 0) %>% nrow()
+```
+
+```{r}
+library(caret)
+conf_matrix  = confusionMatrix(hr_test$pred,hr_test$Attrition, positive = "1")
+conf_matrix
+```
+
+
+
+```{r}
+hr$Attrition = as.factor(hr$Attrition)
+hr_train = hr[sample(seq(1,nrow(hr)),(0.7*nrow(hr))),]
+hr_test = hr[sample(seq(1,nrow(hr)),(0.3*nrow(hr))),]
+dim(hr_train)
+dim(hr_test)
+
+model = rpart(Attrition~Gender+MonthlyIncome+OverTime, data = hr_train,
+             control = rpart.control(cp=-1, minsplit = 2,minbucket = 1))
+fancyRpartPlot(model, palettes = "RdPu")
+hr_test$pred= as.data.frame(predict(model, hr_test))
+result = as.data.frame(predict(model, hr_test))
+hr[1189,c('Gender','MonthlyIncome','OverTime','Attrition')]
+View(hr_test)
+```
+
+```{r}
+hr_test$pred = ifelse(result$`0`>0.5,0,1)
+View(hr_test[,c('Attrition','pred')])
+
+## Calculation of accuracy
+hr_test %>% filter(pred == Attrition) %>% nrow()
+377/nrow(hr_test)
+
+#OR
+mean(hr_test$pred == hr_test$Attrition)*100
+
+table(hr$Attrition)
+```
+
+
+## Post pruning
+```{r}
+printcp(model)
+
+cp_val = model$cptable[which.min(model$cptable[,"xerror"]),"CP"]
+prune(model,cp = cp_val)
+
+plotcp(model)
+```
+
+
+## 
+```{r}
+
+#================== Pruning the tree ===================#
+
+model1 <- rpart(Attrition~OverTime+Gender+MonthlyIncome, data = hr_train, method = "class",control = rpart.control(minbucket = 2,minsplit = 10))
+
+fancyRpartPlot(model1)
+
+model2<- rpart(Attrition~OverTime+Gender+MonthlyIncome, data = hr_train, method = "class",control = rpart.control(cp = 0))
+
+
+fancyRpartPlot(model2)
+
+printcp(model1)
+printcp(model2)
+fancyRpartPlot(model1)
+
+cp_val <- model2$cptable[which.min(model2$cptable[,"xerror"]),"CP"]
+
+model_pr <- prune(model2, cp = cp_val)
+
+
+fancyRpartPlot(model_pr)
+
+pre2 <- as.data.frame(predict(model_pr, hr_test))
+
+pre2 <- ifelse(pre2$`0`>pre2$`1`,0,1)
+
+mean(pre2 == hr_test$Attrition)
+
+fancyRpartPlot(model2,palettes = "YlGn",main = "Awesome Title")
+
+pre <- as.data.frame(predict(model, hr_test))
+
+hr[1189,c('Gender','MonthlyIncome','OverTime')]
+
+hr_test$Prediction <- ifelse(pre$`1`>0.7,1,0)
+
+View(hr_test)
+
+mean(hr_test$Prediction == hr_test$Attrition) * 100
+
+hr_test$Prediction <- as.factor(hr_test$Prediction)
+#=================================
+
+table(hr_test$Attrition, hr_test$Prediction)
+
+confusionMatrix(hr_test$Prediction,hr_test$Attrition,positive = "1")
+
+
+```
+

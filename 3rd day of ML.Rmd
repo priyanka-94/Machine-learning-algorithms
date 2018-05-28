@@ -1,0 +1,229 @@
+---
+title: "3rd day of ML"
+author: "Priyanka Mohekar"
+date: "2 May 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Linear Regression
+## Gradient Descent
+## here in y = mx+c we took c = 0
+```{r}
+x = rnorm(100)
+y = 0.05 * x
+df_xy = data.frame(x = x, y = y )
+plot(x,y)
+cor(x,y)
+m = 0
+alpha = 0.01
+
+library(dplyr)
+df_xy = df_xy %>% mutate(xy = x*y)
+df_xy = df_xy %>% mutate(mx_square = m*(x)^2)
+```
+
+
+```{r}
+m = 1000
+alpha = 0.01
+n_iterations = 1000
+
+
+for(i in seq(1,n_iterations)){
+  df_xy = df_xy %>% mutate(xy = x*y)
+  df_xy = df_xy %>% mutate(mx_square = m*(x)^2)
+  df_xy = df_xy %>% mutate(xy_mx2 = xy - mx_square)
+  sigma_xy_mx2 = sum(df_xy$xy_mx2)
+  m_gradient = -2 / length(x) * sigma_xy_mx2
+  m = m - alpha * m_gradient
+}
+
+print(m)
+```
+
+
+```{r}
+m = 1000
+alpha = 0.01
+n_iterations = 1000
+
+errors = c()
+for(i in seq(1,n_iterations)){
+  curr_err = sum((y - (m*x))^2)/length(x)
+  errors = c(errors,curr_err)
+  df_xy = df_xy %>% mutate(xy = x*y)
+  df_xy = df_xy %>% mutate(mx_square = m*(x)^2)
+  df_xy = df_xy %>% mutate(xy_mx2 = xy - mx_square)
+  sigma_xy_mx2 = sum(df_xy$xy_mx2)
+  m_gradient = -2 / length(x) * sigma_xy_mx2
+  m = m - alpha * m_gradient
+}
+
+print(m)
+plot(errors)
+```
+
+
+```{r}
+m = 1000
+alpha = 0.2 # within few iterations we will get global minimum
+n_iterations = 1000
+
+errors = c()
+for(i in seq(1,n_iterations)){
+  curr_err = sum((y - (m*x))^2)/length(x)
+  errors = c(errors,curr_err)
+  df_xy = df_xy %>% mutate(xy = x*y)
+  df_xy = df_xy %>% mutate(mx_square = m*(x)^2)
+  df_xy = df_xy %>% mutate(xy_mx2 = xy - mx_square)
+  sigma_xy_mx2 = sum(df_xy$xy_mx2)
+  m_gradient = -2 / length(x) * sigma_xy_mx2
+  m = m - alpha * m_gradient
+}
+
+print(m)
+plot(errors)
+```
+
+```{r}
+m = 1000
+alpha = 0.01 # within few iterations we will get global minimum
+n_iterations = 1000
+m_vals = c()
+errors = c()
+for(i in seq(1,n_iterations)){
+  m_vals = c(m_vals, m)
+  curr_err = sum((y - (m*x))^2)/length(x)
+  errors = c(errors,curr_err)
+  df_xy = df_xy %>% mutate(xy = x*y)
+  df_xy = df_xy %>% mutate(mx_square = m*(x)^2)
+  df_xy = df_xy %>% mutate(xy_mx2 = xy - mx_square)
+  sigma_xy_mx2 = sum(df_xy$xy_mx2)
+  m_gradient = -2 / length(x) * sigma_xy_mx2
+  m = m - alpha * m_gradient
+}
+
+print(m)
+{{plot(m_vals, errors)
+  lines(m_vals,errors)}}
+```
+
+
+## here in y = mx+c we took c as variable
+```{r}
+adv <- read.csv("Advertising.csv")
+View(adv)
+adv[1:150,]
+adv_train<-adv[sample(seq(1,nrow(adv)),162),]
+View(adv_train)
+adv_test <- adv[sample(seq(1,nrow(adv)),38),]
+names(adv)
+adv_model <- lm(sales ~TV, data = adv_train) 
+adv_model
+
+```
+
+
+```{r}
+
+m = 1
+c = 10
+alpha = 0.01
+n_iterations = 900
+m_vals = c()
+c_vals = c()
+error_vals = c()
+x_TV = (adv_train$TV)
+y_sales = (adv_train$sales)
+df1  = data.frame(x = scale(x_TV),y = y_sales) 
+for (i in seq(1,n_iterations)) {
+  m_vals = c(m_vals, m)
+  c_vals = c(c_vals, c)
+  error_vals = c(error_vals, 1/length(x_TV) * sum(df1$total_c))
+  df1 = mutate(df1, xy = x * y)
+  df1 = mutate(df1, mx2 = m * (x)^2)  
+  df1 = mutate(df1, cx = c * x)
+  df1 = mutate(df1, total = (df1$xy - df1$mx2 - df1$cx))
+  sigma_m = sum(df1$total)
+  m_grad = -2/nrow(df1) * sigma_m
+  df1 = mutate(df1, mx = m * x)
+  df1 = mutate(df1, total_c = (y - df1$mx - c))
+  sigma_c = sum(df1$total_c)
+  c_grad = -2/nrow(df1) * sigma_c
+  m = m - alpha * m_grad
+  c = c - alpha * c_grad
+}
+print(m)
+print(c)
+```
+
+## code to calculate surface 
+```{r}
+m <- seq(-10,10,length.out = 100)
+c <- seq(-15,15, length.out = 100)
+m_rep = c()
+c_rep = c()
+e = c()
+for (i in m) {
+  for (j in c) {
+    sales_predicted = i * scale(adv_train$TV) + j
+    err = sum((adv_train$sales - sales_predicted)^2)
+    m_rep = c(m_rep, i)
+    c_rep = c(c_rep, j)
+    e = c(e, err)
+  }
+  
+}
+library(rgl)
+open3d()
+plot3d(x = m_rep,y = c_rep, z = e, col = rainbow(100))
+plot3d(x = m_vals,y = c_vals, z = error_vals, add = TRUE)
+```
+
+```{r}
+df <- iris
+m = 100
+c = 10
+n = 10
+
+alpha = 0.01
+x_w = df$Sepal.Width
+y_l = df$Sepal.Length
+m1_vals = c()
+c1_vals = c()
+error_vals = c()
+
+for (i in n) {
+  m1_vals = c(m1_vals, m1)
+  c1_vals = c(c1_vals, c1)
+  error_vals = c(error_vals, 1/length(x_w) * sum(df$tot1))
+  df = mutate(df, xy = x_w * y_l)
+  df = mutate(df, mx2 = m * (x_w)^2)
+  df = mutate(df, cx = c * x_w)
+  df = mutate(df, tot = (df$xy-df$mx2-df$cx))
+  sigma_w = sum(df$tot)
+  m_adja = -2/nrow(df) * sigma_w
+  m1 = m - alpha * m_adja 
+  df = mutate(df, mx = m * x_w)
+  df = mutate(df, tot1 = (y_l - df$mx - c))
+  sigma_l = sum(df$tot1)
+  c_adja = -2/nrow(df) * sigma_l
+  c1 = c - alpha * c_adja
+}
+
+print(m1)
+print(c1)
+
+
+library(rgl)
+open3d()
+plot3d(x = m1_vals,y = c1_vals, z = error_vals)
+```
+
+
+
+

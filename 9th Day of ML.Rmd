@@ -1,0 +1,158 @@
+---
+title: "9th Day of ML"
+author: "Priyanka Mohekar"
+date: "21 May 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(knitr)
+library(arules)
+library(arulesViz)
+library(reshape2)
+library(LSAfun)
+library(Matrix)
+library(dplyr)
+library(recommenderlab)
+data("Groceries")
+```
+
+
+```{r}
+class(Groceries)
+```
+
+```{r}
+Groceries
+inspect(Groceries[1])
+```
+
+```{r}
+model = apriori(Groceries, parameter = list(support = 0.01, confidence = 0.2))
+
+inspect(model[1:50], by='lift')
+```
+
+
+```{r}
+baskets = list(c('a','b','c'), c('a','c','d'),c('e','a'),c('a','b'),
+               c('d','a','b'))
+basket_trans = as(baskets, 'transactions')
+basket_trans
+summary(basket_trans)
+itemFrequencyPlot(Groceries, topN = 10)
+itemFrequencyPlot(basket_trans, topN = 10)
+```
+
+
+```{r}
+model = apriori(basket_trans, parameter = list(support = 0.25, confidence = 0))
+
+inspect(model)
+
+inspect(sort(model, by='lift', decreasing = T))
+```
+
+
+```{r}
+model = apriori(basket_trans, parameter = list(support = 0.01, confidence = 0.2))
+
+
+inspect(sort(model,decreasing = T, by='lift')[1:10])
+```
+
+
+```{r}
+model = apriori(Groceries, parameter = list(support = 0.01, confidence = 0.2))
+
+
+inspect(sort(model,decreasing = T, by='lift')[1:10])
+
+```
+
+
+```{r}
+movies = read.csv("Datasets/datasets-master/movies.csv")
+ratings = read.csv("Datasets/datasets-master/ratings.csv")
+kable(head(movies))
+kable(head(ratings))
+length(unique(ratings$userId))
+length(unique(ratings$movieId))
+
+rating_matrix = dcast(ratings, userId~movieId, value.var = 'rating')
+dim(rating_matrix )
+```
+
+
+```{r}
+cor(t(rating_matrix[1:2,]))
+
+cosine(t(rating_matrix[1:2,]))
+
+cosine(na.omit(t(rating_matrix[1:5,])))
+
+View(rating_matrix[1:5,1:10])
+
+View(rating_matrix[1:15,1:15])
+
+#rating_matrix = dcast(ratings, userId~movieId, value.var = "rating")
+rank_matrix = as(as.matrix(rating_matrix[,-1]),'realRatingMatrix')
+rank_matrix
+
+model = Recommender(rank_matrix, method = "UBCF", param = list(method = "Cosine", nn=30))
+summary(model)
+result = predict(model, rank_matrix[2,],n = 10)
+as(result, 'list')
+
+##
+movies_rec = as(as(result, 'list')[[1]],"numeric")
+movies$title[movies$movieId %in% movies_rec]
+
+movies %>% filter(movieId %in% movies_rec) %>% select(title)
+```
+
+
+```{r}
+recommend_movies = function(model, userid){
+  result = predict(model, rank_matrix[userid,], n=10)
+  movies_rec = as.numeric(as(result, 'list')[[1]])
+  return_movies = movies %>% filter(movieId %in% movies_rec) %>% select(title)
+  return(return_movies)
+}
+
+recommend_movies(model, 54)
+```
+
+##OR
+```{r}
+fun_movie = function(x, model){
+  preduser = predict(model, rank_matrix[x,], n=10)
+  user = as(as(preduser,'list')[[1]],"numeric")
+  return(as.character(movies$title[movies$movieId %in% user]))
+}
+fun_movie(54,model)
+```
+
+### IBCF
+```{r}
+rating_matrix = dcast(ratings, movieId~userId, value.var = 'rating')
+rank_matrix = as(as.matrix(rating_matrix[,-1]),'realRatingMatrix')
+model = Recommender(rank_matrix, method = "IBCF", param = list(method = "Cosine"))
+result = predict(model, rank_matrix[1,],n = 10)
+movies_rec = as(as(result, 'list')[[1]],"numeric")
+movies %>% filter(movieId %in% movies_rec) %>% select(title)
+```
+
+
+```{r}
+recommend_movies = function(model, movie_id){
+  result = predict(model, rank_matrix[movie_id,], n=10)
+  movies_rec = as.numeric(as(result, 'list')[[1]])
+  return_movies = movies %>% filter(movieId %in% movies_rec) %>% select(title)
+  return(return_movies)
+}
+
+recommend_movies(model, 54)
+```
+

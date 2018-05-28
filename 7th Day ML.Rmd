@@ -1,0 +1,174 @@
+---
+title: "7th Day of ML"
+author: "Priyanka Mohekar"
+date: "17 May 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(BBmisc)
+library(caret)
+library(dplyr)
+library(class)
+library(naivebayes)
+library(e1071)
+```
+
+
+
+```{r}
+iris
+sqrt(nrow(iris))
+K = 11
+iris$Species = as.factor(iris$Species)
+iris_train = iris[sample(seq(1,nrow(iris)),105),]
+iris_test = iris[sample(seq(1,nrow(iris)),45),]
+nrow(iris_train)
+nrow(iris_test)
+
+#1 observation in the test data are copared with no of observations(i.e a column) in train data
+predictors =c("Sepal.Length","Sepal.Width","Petal.Length","Petal.Width")
+iris_train$dist = 0
+iris_test$pred = 'random'
+for (i in seq(1, nrow(iris_test))) {
+  neigh_dist = c()
+  neigh_id = c()
+  p1 = iris_test[i,predictors]
+  for (j in seq(1, nrow(iris_train))) {
+    p2 = iris_train[j,predictors]
+    calc_dist = dist(rbind(p1,p2))
+    iris_train[j, 'dist'] = calc_dist
+  }
+  nn = iris_train %>% arrange(dist) %>% head(K)
+  nn_poll = table(nn$Species)
+  iris_test[i, 'pred'] = names(nn_poll)[which.max(nn_poll)]
+}
+View(iris_test)
+```
+
+
+## Compute Accuracy
+```{r}
+sum(iris_test$Species==iris_test$pred)/nrow(iris_test)*100
+```
+
+
+##KNN from scratch
+## preprocessing in the real time data set
+```{r}
+set.seed(123)
+hr <- read.csv("C:/Users/Administrator/Desktop/Machine Learning/Datasets/datasets-master/HR Analytics.csv")
+View(hr)
+dim(hr)
+hr_train = hr[sample(seq(1,nrow(hr)),(0.7*nrow(hr))),]
+hr_test = hr[sample(seq(1, nrow(hr)),(0.3*nrow(hr))),]
+nrow(hr_train)
+nrow(hr_test)
+```
+
+## Convert categorical columns to numerical columns
+```{r}
+dummy_obj = dummyVars(~., data = hr %>% dplyr::select(-Over18))
+hr_new = data.frame(predict(dummy_obj, newdata = hr))
+```
+
+## Normalizing
+```{r}
+hr_norm = normalize(hr_new, method = 'range', range = c(0,1))
+hr_train = hr_norm[sample(seq(1,nrow(hr_norm)),(0.7*nrow(hr_norm))),]
+hr_test = hr_norm[sample(seq(1, nrow(hr_norm)),(0.3*nrow(hr_norm))),]
+```
+
+
+### Model
+```{r}
+hr_test$predict = knn(hr_train, hr_test, cl = as.factor(hr_train$Attrition), k = 1)
+
+hr_test$Attrition = as.factor(hr_test$Attrition)
+hr_test$predict = as.factor(hr_test$predict)
+confusionMatrix(hr_test$predict, hr_test$Attrition, positive = '1')
+```
+
+
+```{r}
+hr_norm = normalize(hr_new, method = 'range', range = c(0,1))
+hr_train = hr_norm[sample(seq(1,nrow(hr_norm)),(0.7*nrow(hr_norm))),]
+hr_test = hr_norm[sample(seq(1, nrow(hr_norm)),(0.3*nrow(hr_norm))),]
+nrow(hr_test)
+nrow(hr_train)
+nn_accuracy = c()
+nn_error_rate = c()
+k_trails = seq(1,50)
+for (k in k_trails) {
+  pred_class = knn(hr_train %>% dplyr::select(-Attrition),
+                   hr_test %>% dplyr::select(-Attrition),
+                   cl = as.factor(hr_train$Attrition), k = k)
+  
+  hr_test$Attrition = as.factor(hr_test$Attrition)
+  pred_class = as.factor(pred_class)
+  cm = confusionMatrix(pred_class,hr_test$Attrition ,positive = '1')
+  acc = cm$overall['Accuracy']
+  nn_accuracy = c(nn_accuracy, acc)
+  e_rate = 1- acc
+  nn_error_rate = c(nn_error_rate, e_rate)
+}
+
+plot(k_trails, nn_error_rate, type = "l")
+length(nn_error_rate)
+length(nn_accuracy)
+dim(hr_train)
+nn_accuracy
+```
+
+
+
+```{r}
+set.seed(100)
+hr <- read.csv("C:/Users/Administrator/Desktop/Machine Learning/Datasets/datasets-master/HR Analytics.csv")
+View(hr)
+dim(hr)
+
+hr_train = hr[sample(seq(1,nrow(hr)),(0.7*nrow(hr))),]
+hr_test = hr[sample(seq(1, nrow(hr)),(0.3*nrow(hr))),]
+```
+
+  
+```{r}
+model = naiveBayes(Attrition~Gender, data = hr_train)
+View(predict(model, hr_test, type = 'raw' ))
+hr_test[1,'Gender']
+```
+
+```{r}
+hr_train %>% filter(Attrition == 0, Gender == "Female") %>% nrow()
+hr_train %>% filter(Attrition == 0, Gender == "Male") %>% nrow()
+hr_train %>% filter(Attrition == 1, Gender == "Female") %>% nrow()
+hr_train %>% filter(Attrition == 1, Gender == "Male") %>% nrow()
+hr_train %>% filter(Attrition == 0) %>% nrow()
+```
+
+```{r}
+model1 = naiveBayes(Attrition~JobRole, data = hr_train)
+View(predict(model1, hr_test, type = 'raw' ))
+hr_test[12,'JobRole']
+
+```
+
+```{r}
+unique(hr_train$JobRole)
+hr_train %>% filter(Attrition == 0, JobRole == "Research Director") %>% nrow()
+
+hr_train %>% filter(Attrition == 1, JobRole == "Research Director") %>% nrow()
+
+
+hr_train %>% filter(Attrition == 1, JobRole == "Laboratory Technician") %>% nrow()
+
+hr_train %>% filter(Attrition == 0, JobRole == "Laboratory Technician") %>% nrow()
+
+
+hr_train %>% filter(Attrition == 0, JobRole == "Healthcare Representative") %>% nrow()
+
+hr_train %>% filter(Attrition == 0, JobRole == "Healthcare Representative") %>% nrow()
+```
+

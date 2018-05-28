@@ -1,0 +1,322 @@
+---
+title: "Classfication"
+author: "Priyanka Mohekar"
+date: "7 May 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(rattle)
+library(tree)
+library(rpart)
+```
+
+
+```{r}
+hr <- read.csv("C:/Users/Administrator/Desktop/Machine Learning/Datasets/datasets-master/HR Analytics.csv")
+View(hr)
+dim(hr)
+hr_train = hr[1:(0.7*nrow(hr)),]
+hr_test = hr[(0.7*nrow(hr)+1):nrow(hr),]
+nrow(hr_train)
+nrow(hr_test)
+```
+
+```{r, fig.width=11, fig.height=8}
+model = rpart(Attrition~. , data = hr)
+{{plot(model)
+  text(model)}}
+fancyRpartPlot(model)
+```
+
+
+```{r}
+m1 = rpart(Attrition~OverTime+Gender, data = hr_train)
+{{plot(m1)
+  text(m1)}}
+fancyRpartPlot(m1)
+
+```
+
+### Gini impurity
+### Input variable: Categorical with two classes
+```{r}
+nrow(hr_train)
+left_overtime = hr_train %>% filter(OverTime == "Yes")
+right_overtime = hr_train %>% filter(OverTime == "No")
+nrow(left_overtime)
+
+
+left_overtime %>% filter(Attrition == 1) %>% summarise(n())
+left_overtime %>% filter(Attrition == 0) %>% summarise(n())
+
+table(left_overtime$Attrition)
+nrow(right_overtime)
+GL = 1 - (96/303)^2 - (207/303)^2
+
+table(right_overtime$Attrition)
+GR = 1 - (76/726)^2 - (650/726)^2
+
+GI = (nrow(left_overtime)/nrow(hr_train))* GL + (nrow(right_overtime)/nrow(hr_train)) * GR
+```
+
+
+
+```{r}
+left_gender = hr_train %>% filter(Gender == "Female")
+right_gender = hr_train %>% filter(Gender == "Male")
+nrow(left_gender)
+nrow(right_gender)
+table(left_gender$Attrition)
+GL1 = 1 - (364/431)^2 - (67/431)^2
+
+table(right_gender$Attrition)
+GR1 = 1 - (493/598)^2 - (105/598)^2
+
+GI1 = (nrow(left_gender)/nrow(hr_train))* GL1 + (nrow(right_gender)/nrow(hr_train)) * GR1
+```
+
+
+```{r}
+table(hr_train$Attrition)
+GI_total = 1 - (857/nrow(hr_train))^2 - (172/nrow(hr_train))^2
+
+model = tree(Attrition~OverTime+Gender, data = hr_train)
+{{plot(model)
+  text(model)}}
+```
+
+
+```{r}
+marital_status_uniq = unique(hr_train$MaritalStatus)
+
+for (status in marital_status_uniq) {
+  sample_left = hr_train %>% filter(MaritalStatus == status)
+  
+  sample_right = hr_train %>% filter(MaritalStatus != status)
+  
+  p0_left = nrow(sample_left %>% filter(Attrition == 0))/ nrow(sample_left)
+  
+  p1_left = nrow(sample_left %>% filter(Attrition == 1))/ nrow(sample_left)
+  
+  gi_left = 1 - p0_left^2 - p1_left^2
+  
+  p0_right = nrow(sample_right %>% filter(Attrition == 0))/ nrow(sample_right)
+  
+  p1_right = nrow(sample_right %>% filter(Attrition == 1))/ nrow(sample_right)
+  
+  gi_right = 1 - p0_right^2 - p1_right^2
+  
+  gi_status = nrow(sample_left)/nrow(hr_train) * gi_left +
+    nrow(sample_right)/nrow(hr_train) * gi_right
+  
+  temp = marital_status_uniq[marital_status_uniq != status] 
+  
+  print('left node')
+  print(status)
+  print('right node')
+  print(temp)
+  print(gi_status)
+  print('-------------------------------------')
+  }
+```
+
+
+
+
+```{r}
+overtime_uniq = unique(hr_train$OverTime)
+
+for (status in overtime_uniq) {
+  sample_left = hr_train %>% filter(OverTime == status)
+  sample_right = hr_train %>% filter(OverTime != status)
+  
+  p0_left = nrow(sample_left %>% filter(Attrition == 0))/ nrow(sample_left)
+  
+  p1_left = nrow(sample_left %>% filter(Attrition == 1))/ nrow(sample_left)
+  
+  gi_left = 1 - p0_left^2 - p1_left^2
+  
+  p0_right = nrow(sample_right %>% filter(Attrition == 0))/ nrow(sample_right)
+  
+  p1_right = nrow(sample_right %>% filter(Attrition == 1))/ nrow(sample_right)
+  
+  gi_right = 1 - p0_right^2 - p1_right^2
+  
+  gi_status = nrow(sample_left)/nrow(hr_train) * gi_left +
+    nrow(sample_right)/nrow(hr_train) * gi_right
+  
+  temp = overtime_uniq[overtime_uniq != status] 
+  
+  print('left node')
+  print(status)
+  print('right node')
+  print(temp)
+  print(gi_status)
+  print('-------------------------------------')
+  }
+```
+
+
+
+```{r}
+x = c('a','b','c','d')
+combn(x , 2, simplify = F)
+combn(x , 3, simplify = F)
+```
+
+
+### Gini impurity
+### Input variable: Multi Class
+```{r}
+jobs_uniq = unique(hr_train$JobRole)
+
+combinations_left = c()
+combinations_right = c()
+gi_all = c()
+
+for (n in c(1,2,3,4)) {
+  comb_n = combn(jobs_uniq, n, simplify = F)
+  for (i in seq(1,length(comb_n))) {
+    comb_left = comb_n[[i]]
+    comb_right = jobs_uniq[!jobs_uniq %in% comb_left]
+    
+    sample_left = hr_train %>% filter(JobRole %in% comb_left)
+    
+    sample_right = hr_train %>% filter(JobRole %in% comb_right)
+    
+    p0_left = nrow(sample_left %>% filter(Attrition == 0))/ nrow(sample_left)
+    
+    p1_left = nrow(sample_left %>% filter(Attrition == 1))/ nrow(sample_left)
+    
+    gi_left = 1 - p0_left^2 - p1_left^2
+    
+    p0_right = nrow(sample_right %>% filter(Attrition == 0))/ nrow(sample_right)
+    
+    p1_right = nrow(sample_right %>% filter(Attrition == 1))/ nrow(sample_right)
+    
+    gi_right = 1 - p0_right^2 - p1_right^2
+    
+    gi_status = nrow(sample_left)/nrow(hr_train) * gi_left +
+      nrow(sample_right)/nrow(hr_train) * gi_right
+    
+    combinations_left = c(combinations_left, 
+                          paste0(comb_left, collapse = ','))
+    
+    combinations_right = c(combinations_right, 
+                           paste0(comb_right, collapse = ','))
+    gi_all = c(gi_all, gi_status)
+  }
+  
+}
+
+result = data.frame(left=combinations_left, 
+                    right=combinations_right, gi=gi_all)
+result %>% arrange(gi) %>% head(1)
+
+View(result)
+```
+
+
+```{r, fig.width=10}
+model = rpart(Attrition~JobRole, data = hr_train)
+fancyRpartPlot(model)
+model
+
+levels(hr_train$JobRole)
+{{plot(model)
+  text(model)}}
+```
+
+
+```{r}
+month_uniq <- sort(unique(hr_train$MonthlyIncome))
+length(month_uniq)
+gi_split <- c()
+splits = (month_uniq[1:(length(month_uniq)-1)]+
+                       month_uniq[2:(length(month_uniq))]) /2
+for (split in splits) {
+  
+  samples_left = hr_train %>% filter(MonthlyIncome< split)
+  
+  samples_right = hr_train %>% filter(MonthlyIncome > split)
+  
+  p0_left = nrow(samples_left %>% filter(Attrition == 0))/ nrow(samples_left)
+    
+    p1_left = nrow(samples_left %>% filter(Attrition == 1))/ nrow(samples_left)
+    
+    gi_left = 1 - p0_left^2 - p1_left^2
+    
+    p0_right = nrow(samples_right %>% filter(Attrition == 0))/ nrow(samples_right)
+    
+    p1_right = nrow(samples_right %>% filter(Attrition == 1))/ nrow(samples_right)
+    
+    gi_right = 1 - p0_right^2 - p1_right^2
+    
+    gi_status = nrow(samples_left)/nrow(hr_train) * gi_left +
+      nrow(samples_right)/nrow(hr_train) * gi_right
+    
+    gi_split = c(gi_split, gi_status)
+  
+}
+
+
+result = data.frame(splits , gi = gi_split)
+View(result)
+result %>% arrange(gi) %>% head(1)
+
+model = tree(Attrition~MonthlyIncome, data = hr_train)
+{{plot(model)
+  text(model)}}
+```
+
+
+```{r}
+model = rpart(Attrition~OverTime, data = hr_train)
+fancyRpartPlot(model)
+```
+
+
+```{r, fig.width=12}
+{{plot(model)
+  text(model)}}
+```
+
+
+```{r}
+table(hr_train$Attrition)
+
+nrow(hr_train %>% filter(Attrition == 0))
+nrow(hr_train %>% filter(Attrition == 1))
+
+p_attribution = nrow(hr_train %>% filter(Attrition == 1))/nrow(hr_train)
+
+samples_left = hr_train %>% filter(OverTime=="No")
+samples_right = hr_train %>% filter(OverTime=="Yes")
+
+nrow(samples_left)
+nrow(samples_left)/nrow(hr_train)
+p0 <- nrow(samples_left %>% filter(Attrition == 1))/nrow(samples_left)
+
+nrow(samples_right)
+nrow(samples_right)/nrow(hr_train)
+p1 <- nrow(samples_right %>%  filter(Attrition == 1))/nrow(samples_right)
+```
+
+```{r}
+model = rpart(Attrition~OverTime+MaritalStatus, data = hr_train)
+fancyRpartPlot(model)
+```
+
+```{r}
+### leaf node probabilities
+nrow(samples_left %>% filter(Attrition == 0))/nrow(samples_left)
+nrow(samples_left %>% filter(Attrition == 1))/nrow(samples_left)
+
+### root node probabilities
+nrow(hr_train %>% filter(Attrition == 0))/nrow(hr_train)
+nrow(hr_train %>% filter(Attrition == 1))/nrow(hr_train)
+```
+
