@@ -1,0 +1,242 @@
+---
+title: "Credit_default"
+author: "Priyanka Mohekar"
+date: "30 May 2018"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(rpart)
+library(tree)
+library(rattle)
+library(caret)
+library(dplyr)
+library(aod)
+library(stringr)
+library(adabag)
+library(randomForest)
+library(naivebayes)
+library(e1071)
+library(BBmisc)
+library(class)
+library(ggplot2)
+credit = read.csv("C:/Users/Administrator/Desktop/Machine Learning/Practice/credit-default.csv")
+#View(credit)
+```
+
+```{r}
+credit1 = createDataPartition(y = credit$default, p = 0.75, list = F)
+credit_train = credit[credit1,]
+credit_test = credit[-credit1,]
+# View(credit_test)
+```
+
+###Linear regression 
+
+```{r}
+
+model_lm = lm(default~., data = credit_train)
+pred_lm = predict(model_lm, credit_test, type = "response")
+pred_lm= ifelse(pred_lm > 1.5, 2, 1)
+mean(pred_lm == credit_test$default)
+
+```
+
+### Logistic Regression 
+
+```{r}
+
+model_logit = glm(as.factor(default)~., data = credit_train, family = binomial(link = "logit"))
+
+anova(model_logit, test = "Chisq")
+
+pred_logit = predict(model_logit, credit_test, type = "response")
+pred_logit= ifelse(pred_logit > 1.5, 2, 1)
+
+pred_logit = as.factor(pred_logit)
+
+cm1 = confusionMatrix(pred_logit, credit_test$default, positive = "2")
+
+
+sens_logit = cm1$byClass['Sensitivity']*100
+acc_logit = cm1$overall['Accuracy']*100
+
+mean(pred_logit == credit_test$default)
+
+```
+
+
+### Decision Tree 
+
+```{r, fig.height=17, fig.width=7}
+
+model_dt = rpart(default~. , data = credit_train, method = "class",
+                 control = rpart.control(cp = 0))
+
+printcp(model_dt)
+
+cp_value = model_dt$cptable[which.min(model_dt$cptable[,"xerror"]),"CP"]
+
+prune_model = prune(model_dt, cp = cp_value)
+{{plot(prune_model)
+  text(prune_model, xpd = T)}}
+
+pred_dt = predict(prune_model, credit_test, type = "class")
+
+cm = confusionMatrix(pred_dt, credit_test$default, positive = "2")
+
+sens_dt = cm$byClass['Sensitivity']*100
+acc_dt = cm$overall['Accuracy']*100
+
+mean(pred_dt == credit_test$default)
+
+```
+
+
+### Random forest 
+
+```{r}
+mtry1 = round(sqrt(length(colnames(credit_train))-1))
+
+model_rf = randomForest(as.factor(default)~., data = credit_train,
+                        mtry = mtry1,
+                        ntree = 100)
+
+credit_train$default= as.factor(credit_train$default)
+credit_test$default = as.factor(credit_test$default)
+
+pred_rf = predict(model_rf, credit_test, type = "class")
+
+cm = confusionMatrix(as.factor(pred_rf), credit_test$default, positive = "2")
+
+sens_rf = cm$byClass['Sensitivity']*100
+
+acc_rf = cm$overall['Accuracy']*100
+
+mean(pred_rf == credit_test$default)
+
+```
+
+###Boosting 
+
+```{r}
+
+model_ada = boosting(default~., data = credit_train)
+
+pred_ada = predict(model_ada, credit_test, type = "class")
+
+pred_ada$class
+
+pred_ada$confusion
+
+cm = confusionMatrix(pred_ada$class, credit_test$default, positive = "2")
+
+sens_ada = cm$byClass['Sensitivity']*100
+
+acc_ada = cm$overall['Accuracy']*100
+
+```
+
+
+###Naives Bayes
+
+```{r}
+
+model_nb = naiveBayes(default~., data = credit_train)
+
+pred_nb = predict(model_nb, credit_test, type = "raw")
+
+pred_nb = as.data.frame(pred_nb)
+
+pred_nb = ifelse(pred_nb$`2`>pred_nb$`1`,2,1)
+
+cm = confusionMatrix(pred_nb, credit_test$default, positive = "2")
+
+sens_nb = cm$byClass['Sensitivity']*100
+
+acc_nb = cm$overall['Accuracy']*100
+
+```
+
+
+### KNN
+
+```{r}
+
+dummy_obj = dummyVars(~., data = credit)
+
+credit_new = data.frame(predict(dummy_obj, newdata = credit))
+
+```
+
+### Normalize 
+
+```{r}
+
+credit_norm = normalize(credit_new, method = "range", range = c(0,1))
+
+credit_norm_train = credit_norm[sample(seq(1, nrow(credit_norm)),(0.7*nrow(credit_norm))),]
+
+credit_norm_test = credit_norm[sample(seq(1,nrow(credit_norm)),(0.3*nrow(credit_norm))),]
+
+pred_knn = knn(credit_norm_train, credit_norm_test, cl = as.factor(credit_norm_train$default), k = 1)
+
+cm = confusionMatrix(pred_knn, credit_norm_test$default, positive = "1")
+
+sens_knn = cm$byClass['Sensitivity']*100
+
+acc_knn = cm$overall['Accuracy']*100
+
+```
+
+```{r}
+
+algo_names <- c("Decision Tree","Random forest",
+                "Boosting", "Naives Bayes", "KNN","Logistic Regression")
+sensitivities <- data.frame(algo_names = algo_names[-6], sensitivity = c(sens_dt, sens_rf, sens_ada, sens_nb, sens_knn))
+
+accuracies <- data.frame(algo_names, accuracy = c(acc_dt, acc_rf, acc_ada, acc_nb, acc_knn,acc_logit))
+
+```
+
+###Comparision between accuracies of different algorithms
+
+```{r}
+
+ggplot(accuracies, aes(x = reorder(algo_names,-accuracy), 
+                       y = accuracy )) +
+  geom_bar(stat = "identity", aes(fill = algo_names)) + theme_bw()+theme(axis.text = element_blank(), axis.title = element_blank(),axis.ticks = element_blank(), legend.position = "bottom") + 
+  geom_text(aes(label = round(accuracy,1)), vjust = -0.25) +
+  scale_fill_discrete(name = "Algorithms") +
+  ggtitle("Comparision between accuracies of different algorithms")
+
+```
+
+###Comparision between sensitivities of different algorithms
+
+```{r}
+
+ggplot(sensitivities, aes(x = reorder(algo_names,-sensitivity), 
+                       y = sensitivity )) +
+  geom_bar(stat = "identity", aes(fill = algo_names)) + theme_bw()+theme(axis.text = element_blank(), axis.title = element_blank(),axis.ticks = element_blank(), 
+                                                                         legend.position = "bottom") + 
+  geom_text(aes(label = round(sensitivity,1)), vjust = -0.25) +
+  scale_fill_discrete(name = "Algorithms") +
+  ggtitle("Comparision between sensitivities of different algorithms")
+
+```
+
+
+```{r}
+regressor = svm(formula = default ~ .,
+                data = credit_norm_train,
+                type = 'C-classification',
+                kernel = 'radial')
+
+regressor_pred = predict(regressor, credit_norm_test)
+mean(regressor_pred == credit_norm_test$default)
+```
+
+
